@@ -44,6 +44,9 @@ struct PostmanPage {
     { key: '', value: '', isOn: true },
   ];
   @State rawJsonStr: string = '';
+  @State usingCache: boolean = true;
+  @State connectTimeout: number = 10000;
+  @State readTimeout: number = 10000;
 
   @State responseStr: string = 'Response';
 
@@ -274,10 +277,10 @@ struct PostmanPage {
             }
             .scrollable(ScrollDirection.Horizontal)
             .scrollBar(BarState.Off)
+            .align(Alignment.Start)
             .width('100%')
 
             if (this.bodyType == 0) {
-              // TODO file
               Scroll() {
                 Column({ space: 5 }) {
                   Row() {
@@ -439,7 +442,59 @@ struct PostmanPage {
         .tabBar('Body')
 
         TabContent() {
-          // TODO settings UI
+          Scroll() {
+            Column({ space: 5 }) {
+              Row() {
+                Text('usingCache')
+                  .layoutWeight(1)
+                Toggle({ type: ToggleType.Switch, isOn: this.usingCache })
+                  .onChange((isOn) => {
+                    this.usingCache = isOn;
+                  })
+              }
+              .padding({ left: 5, right: 5 })
+              .width('100%')
+              .height('auto')
+
+              Row() {
+                Text('connectTimeout')
+                  .layoutWeight(1)
+                TextInput({ text: this.connectTimeout.toString(), placeholder: 'ms' })
+                  .backgroundColor(Color.White)
+                  .type(InputType.Number)
+                  .textAlign(TextAlign.End)
+                  .onChange((value) => {
+                    this.connectTimeout = Number.parseInt(value);
+                  })
+                  .width(100)
+                  .height('auto')
+              }
+              .padding({ left: 5, right: 5 })
+              .width('100%')
+              .height('auto')
+
+              Row() {
+                Text('readTimeout')
+                  .layoutWeight(1)
+                TextInput({ text: this.readTimeout.toString(), placeholder: 'ms' })
+                  .backgroundColor(Color.White)
+                  .type(InputType.Number)
+                  .textAlign(TextAlign.End)
+                  .onChange((value) => {
+                    this.readTimeout = Number.parseInt(value);
+                  })
+                  .width(100)
+                  .height('auto')
+              }
+              .padding({ left: 5, right: 5 })
+              .width('100%')
+              .height('auto')
+            }
+            .width('100%')
+            .height('100%')
+          }
+          .width('100%')
+          .height('100%')
         }
         .tabBar('Settings')
       }
@@ -451,17 +506,26 @@ struct PostmanPage {
         .height(0.5)
         .backgroundColor(Color.Gray)
 
-      Scroll() {
-        Text(this.responseStr)
-          .fontSize(14)
-          .copyOption(CopyOptions.LocalDevice)
-          .margin(10)
-          .width('100%')
-          .height('auto')
+      Stack() {
+        Scroll() {
+          Text(this.responseStr)
+            .fontSize(14)
+            .copyOption(CopyOptions.LocalDevice)
+            .padding(10)
+            .width('100%')
+            .height('auto')
+        }
+        .scrollable(ScrollDirection.Vertical)
+        .scrollBar(BarState.Off)
+        .align(Alignment.TopStart)
+        .width('100%')
+        .height('100%')
+
+        LoadingProgress()
+          .visibility(this.isLoading ? Visibility.Visible : Visibility.None)
+          .width(80)
+          .height(80)
       }
-      .scrollable(ScrollDirection.Vertical)
-      .scrollBar(BarState.Off)
-      .align(Alignment.TopStart)
       .layoutWeight(1)
       .width('100%')
       .height('100%')
@@ -503,7 +567,7 @@ struct PostmanPage {
         headerObj[header.key] = header.value;
       }
     });
-    // TODO
+
     let multiFormDataList: http.MultiFormData[] | null = null;
     let extraData: object | string | null = null;
     if (this.bodyType == 0) {
@@ -533,17 +597,25 @@ struct PostmanPage {
 
     } else {
       if (this.rawJsonStr.length > 0) {
-        headerObj["Content-Type"] = "application/json";
-        extraData = this.rawJsonStr;
+        try {
+          let jsonObj: Record<string, object> = JSON.parse(this.rawJsonStr);
+          headerObj["Content-Type"] = "application/json";
+          this.rawJsonStr = JSON.stringify(jsonObj, null, 2); // 格式化显示
+          extraData = this.rawJsonStr;
+        } catch (e) {
+          promptAction.showToast({ message: "Json不合法" })
+        }
       }
     }
 
-    this.isLoading = true; // TODO loading
+    this.isLoading = true;
     let request = http.createHttp();
     let options : http.HttpRequestOptions = {
       method: method,
-      connectTimeout: 10000, // 10s setting
       header: headerObj,
+      usingCache: this.usingCache,
+      connectTimeout: this.connectTimeout,
+      readTimeout: this.readTimeout,
     }
     if (extraData != null) {
       options.extraData = extraData;
@@ -553,11 +625,10 @@ struct PostmanPage {
     }
     let response = request.request(requestUrl, options);
     response.then((data)=> {
-      // TODO format  history
-      this.responseStr = JSON.stringify(data);
+      this.responseStr = JSON.stringify(data, null, 2);
 
     }).catch((e: BusinessError) => {
-      this.responseStr = JSON.stringify(e);
+      this.responseStr = JSON.stringify(e, null, 2);
     }).finally(()=> {
       this.isLoading = false;
       request.destroy();
