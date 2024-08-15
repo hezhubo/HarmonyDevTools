@@ -1,6 +1,7 @@
 import { http } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { promptAction } from '@kit.ArkUI';
+import { PreferencesUtils } from '../utils/PreferencesUtils';
 
 interface KV {
   key: string,
@@ -11,6 +12,9 @@ interface KV {
 @Entry
 @Component
 struct PostmanPage {
+
+  @State currentKey: string = `Postman`;
+  @State requestKeySelect: SelectOption[] = [];
 
   methodArray: http.RequestMethod[] = [
     http.RequestMethod.GET,
@@ -54,10 +58,27 @@ struct PostmanPage {
 
   build() {
     Column() {
-      Text(`Postman`)
-        .fontSize(30)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(Color.Black)
+      Row() {
+        if (this.requestKeySelect.length == 0) {
+          Text(this.currentKey)
+            .fontSize(30)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.Black)
+        } else {
+          Select(this.requestKeySelect)
+            .value(this.currentKey)
+            .font({ size: 30, weight: FontWeight.Bold })
+            .fontColor(Color.Black)
+            .backgroundColor(Color.White)
+            .onSelect((index, value) => {
+              this.currentKey = value;
+              this.loadLocalRequestParams(index);
+            })
+        }
+      }
+      .justifyContent(FlexAlign.Center)
+      .width('100%')
+      .height('auto')
 
       Row() {
         Select(this.methodSelectOption)
@@ -525,6 +546,21 @@ struct PostmanPage {
           .visibility(this.isLoading ? Visibility.Visible : Visibility.None)
           .width(80)
           .height(80)
+
+        Stack({ alignContent: Alignment.BottomEnd }) {
+          Button("Save", { type: ButtonType.Normal })
+            .stateEffect(true)
+            .fontColor(Color.White)
+            .borderRadius(4)
+            .padding({ left: 8, right: 8, top: 0, bottom: 0 })
+            .margin({ left: 5, right: 10 })
+            .onClick(() => {
+              this.save();
+            })
+        }
+        .width('100%')
+        .height('100%')
+
       }
       .layoutWeight(1)
       .width('100%')
@@ -536,7 +572,23 @@ struct PostmanPage {
   }
 
   aboutToAppear(): void {
-    // TODO local save request
+    let requestKeyArrayStr = PreferencesUtils.getString("REQUEST_KEY_ARRAY");
+    if (requestKeyArrayStr.length > 0) {
+      let localKey: string[] = JSON.parse(requestKeyArrayStr);
+      localKey.forEach((key) => {
+        this.requestKeySelect.push({ value: key })
+      });
+    }
+  }
+
+  save() {
+    // TODO show dialog input key
+    // save key
+    // save params json
+  }
+
+  loadLocalRequestParams(index: number) {
+    // TODO set params
   }
 
   send() {

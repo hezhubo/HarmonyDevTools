@@ -1,9 +1,11 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { PreferencesUtils } from '../utils/PreferencesUtils';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    PreferencesUtils.init(this.context, "DevTools");
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onCreate');
   }
 
