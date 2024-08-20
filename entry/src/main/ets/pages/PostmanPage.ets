@@ -2,12 +2,9 @@ import { http } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { promptAction } from '@kit.ArkUI';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
-
-interface KV {
-  key: string,
-  value: string,
-  isOn: boolean,
-}
+import { CommonInputDialog } from '../widget/CommonInputDialog';
+import { CommonDialog } from '../widget/CommonDialog';
+import { RequestInfo, KV } from '../model/RequestInfo';
 
 @Entry
 @Component
@@ -28,7 +25,7 @@ struct PostmanPage {
     { value: this.methodArray[2] },
     { value: this.methodArray[3] },
   ];
-  methodSelectedIndex: number = 0;
+  @State methodSelectedIndex: number = 0;
   method: http.RequestMethod = this.methodArray[this.methodSelectedIndex];
 
   @State url: string = '';
@@ -55,6 +52,35 @@ struct PostmanPage {
   @State responseStr: string = 'Response';
 
   @State isLoading: boolean = false;
+
+  @State inputValue: string = 'click me'
+  inputDialogController: CustomDialogController = new CustomDialogController({
+    builder: CommonInputDialog({
+      placeholder: 'input save key',
+      confirm: (text: string) => {
+        if (this.requestKeySelect.length > 0) {
+          for (let i = 0; i < this.requestKeySelect.length; i++) {
+            if (this.requestKeySelect[i].value == text) {
+              // 提示已存在，是否覆盖
+              this.toReplaceKey = text;
+              this.dialogController.open();
+              return;
+            }
+          }
+        }
+        this.save(text, false);
+      }
+    }),
+  });
+  toReplaceKey: string = '';
+  dialogController: CustomDialogController = new CustomDialogController({
+    builder: CommonDialog({
+      tips: "确定要覆盖已保存的请求吗？",
+      confirm: () => {
+        this.save(this.toReplaceKey, true);
+      }
+    }),
+  });
 
   build() {
     Column() {
@@ -86,6 +112,7 @@ struct PostmanPage {
           .height(40)
           .font({ size: 12, weight: FontWeight.Bold })
           .backgroundColor(Color.White)
+          .selected(this.methodSelectedIndex)
           .value(this.methodSelectOption[this.methodSelectedIndex].value)
           .onSelect((index, value) => {
             this.methodSelectedIndex = index;
@@ -268,7 +295,7 @@ struct PostmanPage {
             Scroll() {
               Row() {
                 Radio({ value: 'from-data', group: 'bodyGroup', indicatorType: RadioIndicatorType.DOT })
-                  .checked(true)
+                  .checked(this.bodyType == 0)
                   .onChange((isChecked: boolean) => {
                     if (isChecked) {
                       this.bodyType = 0;
@@ -277,6 +304,7 @@ struct PostmanPage {
                 Text('from-data')
 
                 Radio({ value: 'x-www-form-urlencoded', group: 'bodyGroup', indicatorType: RadioIndicatorType.DOT })
+                  .checked(this.bodyType == 1)
                   .onChange((isChecked: boolean) => {
                     if (isChecked) {
                       this.bodyType = 1;
@@ -286,6 +314,7 @@ struct PostmanPage {
                 Text('x-www-form-urlencoded')
 
                 Radio({ value: 'raw', group: 'bodyGroup', indicatorType: RadioIndicatorType.DOT })
+                  .checked(this.bodyType == 2)
                   .onChange((isChecked: boolean) => {
                     if (isChecked) {
                       this.bodyType = 2;
@@ -555,7 +584,7 @@ struct PostmanPage {
             .padding({ left: 8, right: 8, top: 0, bottom: 0 })
             .margin({ left: 5, right: 10 })
             .onClick(() => {
-              this.save();
+              this.inputDialogController.open();
             })
         }
         .width('100%')
@@ -581,14 +610,54 @@ struct PostmanPage {
     }
   }
 
-  save() {
-    // TODO show dialog input key
-    // save key
-    // save params json
+  save(key: string, isReplace: boolean) {
+    if (key.length == 0) {
+      promptAction.showToast({ message: "保存失败" });
+      return;
+    }
+    let requestInfo = new RequestInfo();
+    requestInfo.method = this.method;
+    requestInfo.url = this.url;
+    requestInfo.params = this.paramsArray;
+    requestInfo.headers = this.headersArray;
+    requestInfo.bodyType = this.bodyType;
+    requestInfo.fromData = this.fromDataArray;
+    requestInfo.fromUrlEncoded = this.fromUrlEncodedArray;
+    requestInfo.rawJsonStr = this.rawJsonStr;
+    PreferencesUtils.put(key, JSON.stringify(requestInfo));
+    if (!isReplace) {
+      this.requestKeySelect.push({ value: key });
+      let localKey: string[] = [];
+      this.requestKeySelect.forEach((selectOption) => {
+        localKey.push(selectOption.value as string);
+      })
+      PreferencesUtils.put("REQUEST_KEY_ARRAY", JSON.stringify(localKey));
+    }
+    promptAction.showToast({ message: "保存成功" });
   }
 
   loadLocalRequestParams(index: number) {
-    // TODO set params
+    let key = this.requestKeySelect[index].value as string;
+    let requestJsonStr = PreferencesUtils.getString(key);
+    try {
+      let requestInfo = JSON.parse(requestJsonStr) as RequestInfo;
+      this.method = requestInfo.method;
+      for (let i = 0; i < this.methodArray.length; i++) {
+        if (this.method == this.methodArray[i]) {
+          this.methodSelectedIndex = i;
+          break;
+        }
+      }
+      this.url = requestInfo.url;
+      this.paramsArray = requestInfo.params;
+      this.headersArray = requestInfo.headers;
+      this.bodyType = requestInfo.bodyType;
+      this.fromDataArray = requestInfo.fromData;
+      this.fromUrlEncodedArray = requestInfo.fromUrlEncoded;
+      this.rawJsonStr = requestInfo.rawJsonStr;
+    } catch (e) {
+      promptAction.showToast({ message: "加载失败" });
+    }
   }
 
   send() {
