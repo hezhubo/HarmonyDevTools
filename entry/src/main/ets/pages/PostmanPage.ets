@@ -556,7 +556,7 @@ struct PostmanPage {
         .height(0.5)
         .backgroundColor(Color.Gray)
 
-      Stack() {
+      RelativeContainer() {
         Scroll() {
           Text(this.responseStr)
             .fontSize(14)
@@ -572,23 +572,27 @@ struct PostmanPage {
         .height('100%')
 
         LoadingProgress()
+          .alignRules({
+            top: { anchor: "__container__", align: VerticalAlign.Center },
+            left: { anchor: "__container__", align: HorizontalAlign.Center }
+          })
           .visibility(this.isLoading ? Visibility.Visible : Visibility.None)
           .width(80)
           .height(80)
 
-        Stack({ alignContent: Alignment.BottomEnd }) {
-          Button("Save", { type: ButtonType.Normal })
-            .stateEffect(true)
-            .fontColor(Color.White)
-            .borderRadius(4)
-            .padding({ left: 8, right: 8, top: 0, bottom: 0 })
-            .margin({ left: 5, right: 10 })
-            .onClick(() => {
-              this.inputDialogController.open();
-            })
-        }
-        .width('100%')
-        .height('100%')
+        Button("Save", { type: ButtonType.Normal })
+          .alignRules({
+            bottom: { anchor: "__container__", align: VerticalAlign.Bottom },
+            right: { anchor: "__container__", align: HorizontalAlign.End }
+          })
+          .stateEffect(true)
+          .fontColor(Color.White)
+          .borderRadius(4)
+          .padding({ left: 8, right: 8, top: 0, bottom: 0 })
+          .margin({ left: 5, right: 10 })
+          .onClick(() => {
+            this.inputDialogController.open();
+          })
 
       }
       .layoutWeight(1)
